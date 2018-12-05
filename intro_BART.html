@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Introduction to Bayesian Additive Regression Trees</title>
+    <meta charset="utf-8">
+    <meta name="author" content="Andrew C Parnell" />
+    <link href="libs/remark-css/default.css" rel="stylesheet" />
+    <link href="libs/remark-css/maynooth.css" rel="stylesheet" />
+    <link href="libs/remark-css/maynooth-fonts.css" rel="stylesheet" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# Introduction to Bayesian Additive Regression Trees
+### Andrew C Parnell
+### 5th December, 2018
+
+---
+
+
+
+class: big
+
+# Goals
+
+- Teach my PhD students the basics of BART
+
+- Get the other Hamiltonians interested in collaborating on BART
+
+- Get the statistics group up to speed on where they can work on BART
+
+---
+
+# What is BART?
+
+&lt;img src="https://img.huffingtonpost.com/asset/579f38881200007404a54711.jpeg" height="200" /&gt;&lt;img src="https://media.ktvu.com/media.ktvu.com/photo/2015/07/31/28934772_6282569_G_70469_ver1.0_640_360.jpg" height="200" /&gt;
+
+***
+
+`$$\Huge y = \sum_{j=1}^M g(X, T_j, \Theta_j, \mu_j) + \epsilon$$`
+
+Chipman, Hugh A., Edward I. George, and Robert E. McCulloch. BART: Bayesian additive regression trees. _The Annals of Applied Statistics 4_, no. 1 (2010): 266-298.
+
+---
+
+# BART works (part 1)
+
+
+```r
+data(BostonHousing, package = "mlbench")
+BostonHousing %&gt;% head
+```
+
+```
+##      crim zn indus chas   nox    rm  age    dis rad tax ptratio      b
+## 1 0.00632 18  2.31    0 0.538 6.575 65.2 4.0900   1 296    15.3 396.90
+## 2 0.02731  0  7.07    0 0.469 6.421 78.9 4.9671   2 242    17.8 396.90
+## 3 0.02729  0  7.07    0 0.469 7.185 61.1 4.9671   2 242    17.8 392.83
+## 4 0.03237  0  2.18    0 0.458 6.998 45.8 6.0622   3 222    18.7 394.63
+## 5 0.06905  0  2.18    0 0.458 7.147 54.2 6.0622   3 222    18.7 396.90
+## 6 0.02985  0  2.18    0 0.458 6.430 58.7 6.0622   3 222    18.7 394.12
+##   lstat medv
+## 1  4.98 24.0
+## 2  9.14 21.6
+## 3  4.03 34.7
+## 4  2.94 33.4
+## 5  5.33 36.2
+## 6  5.21 28.7
+```
+
+---
+
+# BART works (part 1)
+
+&lt;img src="Boston_housing_benchmark.jpg" width="2520" height="500" style="display: block; margin: auto;" /&gt;
+---
+
+# BART works (part 2)
+
+A commonly used method for simulating complex regression-type data is:
+
+`$$y = \beta_1 \sin(\pi x_1 x_2) + \beta_2 (x_3 - 0.5)^2 + \beta_3 x_4 + \beta_5 x_5 + \epsilon; \; \epsilon \sim N(0, 1)$$`
+
+where `\(x_j \sim N(0, 1)\)` for `\(j=1, \ldots, 5\)`
+
+From the Freidman Multivariate Adaptive Regression Splines paper of 1991
+
+Task is to create good predictions of `\(y\)` and identify which variables are important
+
+
+
+
+```r
+set.seed(123)
+dat = sim_friedman(500)
+fried = data.frame(dat$X, y = dat$y)
+head(fried)
+```
+
+```
+##            X1          X2          X3         X4         X5          y
+## 1 -0.56047565 -0.60189285 -0.99579872 -0.8209867 -0.5116037  6.5952490
+## 2 -0.23017749 -0.99369859 -1.03995504 -0.3072572  0.2369379  7.5872762
+## 3  1.55870831  1.02678506 -0.01798024 -0.9020980 -0.5415892 -0.9423273
+## 4  0.07050839  0.75106130 -0.13217513  0.6270687  1.2192276  4.2465965
+## 5  0.12928774 -1.50916654 -2.54934277  1.1203550  0.1741359 24.3177039
+## 6  1.71506499 -0.09514745  1.04057346  2.1272136 -0.6152683 -8.3265699
+```
+
+---
+  
+# BART works (part 2)
+
+&lt;img src="Friedman_benchmark.jpg" width="3200" height="500" style="display: block; margin: auto;" /&gt;
+
+---
+
+class: big
+
+# Key BART advantages
+
+- Very good prediction properties
+
+- Deals with interactions and non-linear relationships
+
+- Based on a probability distribution so 'easily' extendable
+
+- A Bayesian model so have probabilistic uncertainty intervals for any required quantities
+
+---
+
+# BART prediction intervals
+
+&lt;img src="BART_prediction_intervals.jpg" width="3200" height="500" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Back to ba(yes)-sics
+
+- Multiple linear regression:
+
+`$$y = \alpha + \beta_1 x_1 + \beta_2 x_2 + \ldots + \beta_p x_p + \epsilon,\; \epsilon \sim N(0, \sigma^2)$$`
+
+- In Bayesian  world we try to find the _posterior probability distribution_ of the parameters `\((\sigma, \alpha, \beta_1, \ldots, \beta_p)\)` given the data `\((y \mbox{ and } x_1, x_2, \ldots, x_p)\)`
+
+- We give _prior distributions_ to the parameters to constrain them to realistic values in the posterior
+
+- The model fitting proceeds by creating a sequential algorithm called a Gibbs sampler where we update each parameter individually _given all the parameters and data_ using an accept/reject algorithm
+
+- The algorithm takes into account the likelihood (here the linear model structure) and the prior probability distributions
+
+---
+
+# Gibbs sampling
+
+![Hamiltonian Monte Carlo in action](https://raw.githubusercontent.com/chi-feng/mcmc-demo/master/docs/rwmh.gif)
+
+---
+
+# Convergence
+
+&lt;img src="intro_BART_files/figure-html/unnamed-chunk-8-1.png" width="\maxwidth" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Regression trees
+
+&lt;img src="tree_58.jpg" width="3200" height="500" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Regression trees in code
+
+
+```
+##       terminal child_left child_right parent split_variable split_value
+##  [1,]        0          2           3     NA              3       0.474
+##  [2,]        0          4           5      1              5       0.451
+##  [3,]        0          6           7      1              5       0.147
+##  [4,]        0          8           9      2              3       0.201
+##  [5,]        1         NA          NA      2             NA          NA
+##  [6,]        1         NA          NA      3             NA          NA
+##  [7,]        1         NA          NA      3             NA          NA
+##  [8,]        1         NA          NA      4             NA          NA
+##  [9,]        1         NA          NA      4             NA          NA
+##           mu node_size
+##  [1,]     NA       200
+##  [2,]     NA        96
+##  [3,]     NA       104
+##  [4,]     NA        41
+##  [5,]  0.168        55
+##  [6,] -0.432        15
+##  [7,] -0.120        89
+##  [8,]  0.002        19
+##  [9,] -0.475        22
+```
+
+---
+
+class: big
+
+# Regression trees and Bayes
+
+- We still have `\(X\)` and `\(y\)` as our data
+
+- Our new parameters are the tree structure (discrete), the split variables (discrete), the split values (continuous) and the terminal node values (continuous)
+
+- For given parameters and data we can create predictions
+
+- We use MCMC exactly as before to create a posterior distribution of the parameters given the data
+
+---
+
+class: big
+
+# A single regression tree model
+
+`$$\Large y = g(X, T, \Theta, \mu) + \epsilon; \epsilon \sim N(0, \sigma^2)$$`
+
+- Here `\(y\)` is the response and `\(X\)` the covariates (data)
+- `\(T\)` is a tree structure (parameter)
+- `\(\Theta\)` is a set of split variables and values (parameters)
+- `\(\mu\)` is the set of terminal node values (parameters)
+- The algorithm works by guessing initial values of all these (usually a stump), then proposing and accepting/rejecting new trees
+- The big problem that occurs here is that the number of parameters changes when the tree structure changes
+
+---
+
+# Collapsing over trees
+
+- The main reason that BART works is that we can collapse over the tree structure when we use a normally distributed prior on the `\(\mu\)` terminal node parameters. 
+
+- Suppose `\(y_1, \ldots, y_n\)` are all the observations that fall into a single terminal node
+- Let `\(\tau = \sigma^-2\)` and suppose the mean parameter in this terminal node has prior `\(\mu \sim N(\mu_\mu, \tau_\mu^{-1})\)`.
+
+- Then: 
+  
+`\begin{eqnarray*}
+\pi(y_1, \ldots, y_n| \sigma, \ldots) &amp;=&amp; \int \pi(y_1, \ldots, y_n| \mu, \sigma) \pi(\mu) \partial \mu \\
+&amp;=&amp;  \tau^{n/2} \left( \frac{\tau_\mu}{\tau_\mu + n \tau} \right)^{1/2} \exp \left[ -\frac{\tau}{2} \left\{ \sum y_i^2 - \frac{ \tau (n\bar{y})^2 }{ \tau_\mu + n \tau } \right\} \right]
+\end{eqnarray*}`
+
+- Can extend this to multiple terminal nodes for a single tree via products
+
+---
+
+class: big
+
+# A sum of trees model
+
+`$$\Large y = \sum_{j=1}^M g(X, T_j, \Theta_j, \mu_j) + \epsilon;\; \epsilon \sim N(0, \sigma^2)$$`
+
+- Standard BART MCMC uses a back-fitting approach where each tree is fixed and the others updated in turn
+
+- Requires us to propose and accept/reject a new tree at each iteration for `\(j=1, \ldots, M\)` trees
+
+- We put extra prior distributions on the size and shape of the trees to keep them small, and to keep the `\(\mu\)` values from dominating the predictions
+
+
+---
+
+# Grow, prune, swap, and change
+
+- Default BART has four moves to generate new trees, all of which are reversible
+
+- __Grow__ picks a random terminal node and splits it in two by choosing a random (uniform) split variable and split value
+
+- __Prune__ picks a pair of adjacent terminal nodes and merges them
+
+- __Swap__ picks two random (uniform) internal nodes and swaps their split variables and values
+
+- __Change__ picks a random (uniform) internal node and changes the split variable and value
+
+- Others have been proposed over the years but haven't yielded large performance improvements
+
+---
+
+# The BART algorithm
+
+```
+Data: Target variable y (length n), 
+      Feature matrix X (n rows and p columns)
+Result: Posterior list of trees T, values of tau, fitted values y_hat
+Intitialisation: 
+  Number of trees M
+	Number of iterations N
+	Initial value tau = 1
+	Set trees T_j; j = 1, ..., M to stumps
+	Set values of mu to 0
+For iterations i from 1 to N:
+	For trees j from 1 to M:
+		Compute partial residuals from y minus predictions of all trees except tree j
+		Grow a new tree T_j_new based on grow/prune/change/swap
+		Set l_new = log full conditional of new tree T_j_new
+		Set l_old = log full conditional of old tree T_j
+		Set a = exp(l_new - l_old)
+		Generate u from U(0, 1)
+		If u &lt; a:
+			Set T_j = T_j_new
+		Simulate mu values for T_j
+  End tree loop
+  Get predictions y_hat from all trees
+	Update tau
+End iteration loop
+```
+
+---
+
+# Problems with convergence
+
+- It's very hard to monitor convergence with varying dimensional parameters
+
+- You can store the full conditionals of the different trees, or plot the posterior predictive likelihood
+
+- However a small change in the tree can wreck the convergence properties
+
+&lt;img src="intro_BART_files/figure-html/unnamed-chunk-11-1.png" style="display: block; margin: auto;" /&gt;
+
+---
+
+class: big
+
+# Extensions of BART
+
+- Because BART is built on a standard set of probability distributions it's quite easily extendable to other types of models _provided you can still perform the collapsing over the terminal node parameters_
+
+- Some extensions have already been done:
+
+    - 2 and multi-class classification models
+    - Multivariate models
+    - Monotone response models
+    - Survival analysis models
+
+---
+
+class: big
+
+# Major problems with BART
+
+- The fitting algorithm is the main bottleneck
+
+- Choosing split variables and values uniformly is very far from optimal. Need a far greedier algorithm
+
+- Better ways to explore trees?
+
+- Lots of modelling types still not covered
+
+---
+
+class: big
+
+# Summary
+
+- BART is a Bayesian model with both great practical use and theoretical properties
+
+- Has all the benefits of Bayes (prior information, good calibration properties), plus all the benefits of machine learning
+
+- Needs more work on the algorithm to make it faster for bigger data sets, and more bespoke versions of it for specific sort of data
+
+---
+
+class: center, middle
+
+# Questions?
+    </textarea>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function() {
+  var d = document, s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})();</script>
+
+<script>
+(function() {
+  var i, text, code, codes = document.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+})();
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

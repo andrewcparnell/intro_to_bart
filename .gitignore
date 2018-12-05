@@ -31,6 +31,16 @@ vignettes/*.pdf
 # Temporary files created by R markdown
 *.utf8.md
 *.knit.md
+.Rproj.user
 
-# Shiny token, see https://shiny.rstudio.com/articles/shinyapps.html
-rsconnect/
+# Mac files
+.DS_Store
+
+# Compiled files
+src/*.so
+Src/*.o
+
+# Latex files
+*.aux
+*.log
+*.synctex.gz
